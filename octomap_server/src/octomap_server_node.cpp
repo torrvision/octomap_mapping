@@ -38,50 +38,64 @@
 
 #include <ros/ros.h>
 #include <octomap_server/OctomapServer.h>
+#include <octomap/AbstractOcTree.h>
+#include "std_msgs/String.h"
+#include <octomap_msgs/Octomap.h>
 
 #define USAGE "\nUSAGE: octomap_server <map.[bt|ot]>\n" \
         "  map.bt: inital octomap 3D map file to read\n"
 
+void updateMapCallback(const octomap_msgs::Octomap&);
+void updateTrajectoriesCallback(const visualization_msgs::Marker&);
+
 using namespace octomap_server;
 
+//define global pointer to later point to octomap server declaration
+//(declaring the octomap server object as global jumps the init function causing an error)
+OctomapServer* serverPtr;
+int* counter;
+ros::Publisher * pb;
+
+void updateMapCallback(const octomap_msgs::Octomap& map_msg)
+{
+	octomap::AbstractOcTree* tree = octomap_msgs::msgToMap(map_msg);
+	octomap::OcTree* octree = dynamic_cast<octomap::OcTree*>(tree);
+	
+	if(!octree)
+	{
+		ROS_ERROR("error receiving OcTree update");
+	}
+	
+	if(!serverPtr->copyMap(octree))
+	{
+		ROS_ERROR("Copying Failed");
+	}
+	else
+	{
+		//ROS_INFO("Received packet %d",++(*counter));
+	}
+}
+
+void updateTrajectoriesCallback(const visualization_msgs::Marker& trajectory_msg)
+{
+	pb->publish(trajectory_msg);
+	//ROS_INFO("Received packet %d",++(*counter));
+}
+
 int main(int argc, char** argv){
-  ros::init(argc, argv, "octomap_server");
-  const ros::NodeHandle& private_nh = ros::NodeHandle("~");
-  std::string mapFilename(""), mapFilenameParam("");
-
-  if (argc > 2 || (argc == 2 && std::string(argv[1]) == "-h")){
-    ROS_ERROR("%s", USAGE);
-    exit(-1);
-  }
-
+  ros::init(argc, argv, "octomap_server_node");
+  //initialise(argc,argv);
   OctomapServer server;
-  ros::spinOnce();
-
-  if (argc == 2){
-    mapFilename = std::string(argv[1]);
-  }
-
-  if (private_nh.getParam("map_file", mapFilenameParam)) {
-    if (mapFilename != "") {
-      ROS_WARN("map_file is specified by the argument '%s' and rosparam '%s'. now loads '%s'", mapFilename.c_str(), mapFilenameParam.c_str(), mapFilename.c_str());
-    } else {
-      mapFilename = mapFilenameParam;
-    }
-  }
-
-  if (mapFilename != "") {
-    if (!server.openFile(mapFilename)){
-      ROS_ERROR("Could not open file %s", mapFilename.c_str());
-      exit(1);
-    }
-  }
-
-  try{
-    ros::spin();
-  }catch(std::runtime_error& e){
-    ROS_ERROR("octomap_server exception: %s", e.what());
-    return -1;
-  }
-
+  int count = 0;
+  counter = &count;
+  serverPtr = &server;
+  ros::NodeHandle private_nh;
+  ros::Publisher trajectoryPublisher = private_nh.advertise<visualization_msgs::Marker>("visualization_marker", 10);
+  pb = &trajectoryPublisher;
+  ros::Subscriber mapSub = private_nh.subscribe("updateMap",1000,updateMapCallback);
+  ros::Subscriber trajectorySub = private_nh.subscribe("updateTrajectories",1000,updateTrajectoriesCallback);
+  
+  ros::spin();
+  
   return 0;
 }

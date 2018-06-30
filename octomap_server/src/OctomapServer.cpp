@@ -198,12 +198,36 @@ OctomapServer::~OctomapServer(){
     m_pointCloudSub = NULL;
   }
 
-
   if (m_octree){
     delete m_octree;
     m_octree = NULL;
   }
 
+}
+
+bool OctomapServer::copyMap(octomap::OcTree* tree)
+{
+  m_octree = tree;
+  m_treeDepth = m_octree->getTreeDepth();
+  m_maxTreeDepth = m_treeDepth;
+  m_res = m_octree->getResolution();
+  m_gridmap.info.resolution = m_res;
+  double minX, minY, minZ;
+  double maxX, maxY, maxZ;
+  m_octree->getMetricMin(minX, minY, minZ);
+  m_octree->getMetricMax(maxX, maxY, maxZ);
+
+  m_updateBBXMin[0] = m_octree->coordToKey(minX);
+  m_updateBBXMin[1] = m_octree->coordToKey(minY);
+  m_updateBBXMin[2] = m_octree->coordToKey(minZ);
+
+  m_updateBBXMax[0] = m_octree->coordToKey(maxX);
+  m_updateBBXMax[1] = m_octree->coordToKey(maxY);
+  m_updateBBXMax[2] = m_octree->coordToKey(maxZ);
+
+  publishAll();
+
+  return true;
 }
 
 bool OctomapServer::openFile(const std::string& filename){

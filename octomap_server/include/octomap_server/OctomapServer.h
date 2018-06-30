@@ -97,6 +97,10 @@ public:
 
   virtual void insertCloudCallback(const sensor_msgs::PointCloud2::ConstPtr& cloud);
   virtual bool openFile(const std::string& filename);
+  
+  //----------------------------- Added by Edward -----------------------
+  bool copyMap(OcTreeT*);
+  //---------------------------------------------------------------------
 
 protected:
   inline static void updateMinKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& min) {
